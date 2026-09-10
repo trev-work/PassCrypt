@@ -1,0 +1,157 @@
+from Crypto.Cipher import AES
+import Crypto.Random
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+mode = AES.MODE_CBC
+IV = Crypto.Random.get_random_bytes(16)
+trusted = False
+
+#creates an array
+passwords = []
+
+def padding(newpasswd):
+   while len(newpasswd) % 64 != 0:
+      newpasswd = newpasswd + " "
+   return
+
+#Create a Fingerprint!
+def newkey():
+   global key
+   global cipher
+   rawkey = input("Enter new encryption key: ").encode("utf-8")
+   while True:
+      salt = input("Enter a salt: ").encode("utf-8")
+      if len(salt) < 8:
+         print("Must be at least 8 bytes!")
+      else:
+         break
+
+   # For key derivation
+   kdf = Argon2id(
+      salt = salt,
+      length = 32,
+      iterations = 1,
+      lanes = 4,
+      memory_cost = 32,
+   )
+
+   # Fingerprinting
+   key = kdf.derive(rawkey)
+
+   #Create Cipher
+   cipher = AES.new(key, mode, IV)
+
+   print(f"Key Generated!: {key}")
+   menu()
+   return key, cipher
+
+#Decrypt!
+def decryptor(passwd):
+   global key
+   global IV
+   global trusted
+
+   if trusted == False:
+      trykey = input("Enter key for decryption: ").encode("utf-8")
+      salt = input("Enter salt for decryption: ").encode("utf-8")
+
+      kdf = Argon2id(
+         salt = salt,
+         length = 32,
+         iterations = 1,
+         lanes = 4,
+         memory_cost = 32,
+      )
+
+      attempt = kdf.derive(trykey)
+
+      if attempt == key:
+         trusted = True
+         print("The key was a match!")
+      else:
+         print("WRONG!")
+
+   cipher = Cipher(algorithms.AES(key), modes.CBC(IV))
+   decryptor = cipher.decryptor()
+   encryptor = cipher.encryptor()
+
+   if trusted == True:
+      decrypted = decryptor.update(passwd) + decryptor.finalize()
+      return decrypted
+   else:
+      print("Did not decrypt.")
+      
+
+# Encrypt and save a password!
+def passwdhash():
+    global IV
+    global key
+#set password
+    newpasswd = input("Enter password: ")
+    print("This is doing something!")
+    cipher = Cipher(algorithms.AES(key), modes.CBC(IV))
+    encryptor = cipher.encryptor()
+    padded = newpasswd.rjust(64, ' ')
+    encrypted = encryptor.update(padded.encode("utf-8")) + encryptor.finalize()
+    passwords.append(encrypted)
+    print(f"success! Added password: {encrypted}")
+    menu()
+
+
+def deletepasswd():
+   while True:
+      try:
+         option = int(input("Which password would you like to delete: "))
+         del passwords[option]
+         print ("Password Deleted Permanently!")
+         menu()
+         break
+      except IndexError, ValueError:
+         print ("invalid input!")
+         break
+
+def listpasswds():
+   print ("\nPasswords: \n")
+   for i, c in enumerate(passwords):
+      decrypted = decryptor(c).decode("utf-8")
+      print (i, decrypted.lstrip())
+   trusted == False
+   menu()
+
+def menu():
+   print ("Welcome to HashCrpyt!\n\nMenu:\n" \
+   "1. Add a password!\n" \
+   "2. Delete a password!\n" \
+   "3. List passwords!\n" \
+   "4. Generate a key!\n" \
+   "5. Exit!\n")
+
+   while True:
+    try:
+        choice = int(input("Choose a menu option: "))
+        match choice:
+           case 1:
+              passwdhash()
+              break
+           case 2:
+              deletepasswd()
+              break
+           case 3:
+              listpasswds()
+              break
+           case 4:
+              newkey()
+              break
+           case 5:
+              print("Goodbye!")
+              break
+           case _:
+              print("Invalid option")
+              (menu)
+              break
+    except ValueError:
+        print("Invalid option")
+
+menu()
