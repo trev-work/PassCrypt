@@ -5,21 +5,15 @@ from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 mode = AES.MODE_CBC
-IV = Crypto.Random.get_random_bytes(16)
 trusted = False
 
 #creates an array
+w, h = 2, 16
 passwords = []
-
-def padding(newpasswd):
-   while len(newpasswd) % 64 != 0:
-      newpasswd = newpasswd + " "
-   return
 
 #Create a Fingerprint!
 def newkey():
    global key
-   global cipher
    rawkey = input("Enter new encryption key: ").encode("utf-8")
    while True:
       salt = input("Enter a salt: ").encode("utf-8")
@@ -40,17 +34,13 @@ def newkey():
    # Fingerprinting
    key = kdf.derive(rawkey)
 
-   #Create Cipher
-   cipher = AES.new(key, mode, IV)
-
    print(f"Key Generated!: {key}")
    menu()
-   return key, cipher
+   return key
 
 #Decrypt!
-def decryptor(passwd):
+def decryptor(passwd, IV):
    global key
-   global IV
    global trusted
 
    if trusted == False:
@@ -86,18 +76,22 @@ def decryptor(passwd):
 
 # Encrypt and save a password!
 def passwdhash():
-    global IV
     global key
 #set password
-    newpasswd = input("Enter password: ")
-    print("This is doing something!")
-    cipher = Cipher(algorithms.AES(key), modes.CBC(IV))
-    encryptor = cipher.encryptor()
-    padded = newpasswd.rjust(64, ' ')
-    encrypted = encryptor.update(padded.encode("utf-8")) + encryptor.finalize()
-    passwords.append(encrypted)
-    print(f"success! Added password: {encrypted}")
-    menu()
+    try:
+      IV = Crypto.Random.get_random_bytes(16)
+      newpasswd = input("Enter password: ")
+      cipher = Cipher(algorithms.AES(key), modes.CBC(IV))
+      encryptor = cipher.encryptor()
+      padded = newpasswd.rjust(64, ' ')
+      encrypted = encryptor.update(padded.encode("utf-8")) + encryptor.finalize()
+      passwords.append([encrypted, IV])
+      print(f"success! Added password: {encrypted}")
+      menu()
+    except NameError:
+      print("No key on file")
+      newkey()
+
 
 
 def deletepasswd():
@@ -110,14 +104,16 @@ def deletepasswd():
          break
       except IndexError, ValueError:
          print ("invalid input!")
+         menu()
          break
 
 def listpasswds():
+   global trusted
    print ("\nPasswords: \n")
-   for i, c in enumerate(passwords):
-      decrypted = decryptor(c).decode("utf-8")
+   for i, (c, IV) in enumerate(passwords):
+      decrypted = decryptor(c, IV).decode("utf-8")
       print (i, decrypted.lstrip())
-   trusted == False
+   trusted = False
    menu()
 
 def menu():
